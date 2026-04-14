@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultra Trail Dashboard — Nordine Yagoub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #161920;
+    --bg3: #1e2230;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8eaf0;
+    --muted: #7a7f94;
+    --accent: #5b8dee;
+    --teal: #1fc9a0;
+    --amber: #f5a623;
+    --red: #e24b4b;
+    --purple: #8b7fee;
+    --green: #4caf6e;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  .header { padding: 28px 32px 0; display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 0.5px solid var(--border); padding-bottom: 20px; }
+  .header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-left p { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .header-right { display: flex; gap: 8px; }
+  .badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+  .badge-teal { background: rgba(31,201,160,0.15); color: var(--teal); border: 0.5px solid rgba(31,201,160,0.3); }
+  .badge-blue { background: rgba(91,141,238,0.15); color: var(--accent); border: 0.5px solid rgba(91,141,238,0.3); }
+
+  .main { padding: 24px 32px; display: grid; gap: 20px; }
+
+  /* KPI Row */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .kpi-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .kpi-val { font-size: 26px; font-weight: 600; color: var(--text); letter-spacing: -1px; }
+  .kpi-unit { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .kpi-delta-pos { color: var(--teal); font-size: 11px; margin-top: 4px; }
+  .kpi-delta-neg { color: var(--amber); font-size: 11px; margin-top: 4px; }
+
+  /* Charts grid */
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .chart-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Bottom grid */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* Progress bars */
+  .prog-row { display: flex; flex-direction: column; gap: 8px; }
+  .prog-item { display: grid; grid-template-columns: 36px 1fr 52px; align-items: center; gap: 8px; font-size: 12px; }
+  .prog-label { color: var(--muted); text-align: right; }
+  .prog-track { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .prog-val { color: var(--text); font-weight: 500; font-size: 11px; }
+
+  /* Donut legend */
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .dl-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .dl-dot { width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; display: inline-block; flex-shrink: 0; }
+  .dl-label { display: flex; align-items: center; color: var(--muted); }
+  .dl-val { color: var(--text); font-weight: 500; }
+
+  /* Day of week */
+  .dow-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .dow-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .dow-bar-wrap { width: 100%; height: 80px; display: flex; align-items: flex-end; }
+  .dow-bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; }
+  .dow-label { font-size: 10px; color: var(--muted); }
+  .dow-km { font-size: 10px; color: var(--text); font-weight: 500; }
+
+  /* Top runs */
+  .run-list { display: flex; flex-direction: column; gap: 8px; }
+  .run-item { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg3); border-radius: var(--radius-sm); }
+  .run-rank { font-size: 11px; color: var(--muted); text-align: center; }
+  .run-rank-num { font-size: 20px; font-weight: 700; color: var(--text); display: block; letter-spacing: -1px; }
+  .run-info { }
+  .run-dist { font-size: 15px; font-weight: 600; color: var(--text); }
+  .run-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .run-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(91,141,238,0.15); color: var(--accent); border: 0.5px solid rgba(91,141,238,0.3); }
+
+  /* AI Panel */
+  .ai-panel { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .ai-title { font-size: 13px; font-weight: 500; color: var(--teal); }
+  .ai-content { font-size: 13px; color: var(--text); line-height: 1.7; min-height: 80px; }
+  .ai-content.loading { color: var(--muted); font-style: italic; }
+  .ai-insight { margin-bottom: 8px; padding-left: 14px; border-left: 2px solid var(--accent); }
+  .ai-input-row { display: flex; gap: 8px; margin-top: 14px; }
+  .ai-input { flex: 1; background: var(--bg3); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; color: var(--text); outline: none; }
+  .ai-input::placeholder { color: var(--muted); }
+  .ai-input:focus { border-color: rgba(91,141,238,0.5); }
+  .ai-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .ai-btn:hover { opacity: 0.85; }
+  .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Heatmap */
+  .heatmap { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+  .hm-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .hm-label { font-size: 9px; color: var(--muted); }
+  .hm-cell { width: 100%; aspect-ratio: 1; border-radius: 3px; }
+
+  footer { text-align: center; padding: 20px; font-size: 11px; color: var(--muted); border-top: 0.5px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Ultra Trail · Nordine Yagoub</h1>
+    <p>Données Suunto · 2020–2026 · Analyse IA intégrée</p>
+  </div>
+  <div class="header-right">
+    <span class="badge badge-teal">951 sorties</span>
+    <span class="badge badge-blue">6 ans de données</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">Distance totale</div>
+      <div class="kpi-val">7 864<span class="kpi-unit">km</span></div>
+      <div class="kpi-sub">≈ Paris→Pékin</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Dénivelé cumulé</div>
+      <div class="kpi-val">199<span class="kpi-unit">K m</span></div>
+      <div class="kpi-delta-pos">↑ 22× Everest</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Record distance</div>
+      <div class="kpi-val">70.97<span class="kpi-unit">km</span></div>
+      <div class="kpi-sub">30 avr. 2022</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">FC moyenne 2025</div>
+      <div class="kpi-val">144<span class="kpi-unit">bpm</span></div>
+      <div class="kpi-delta-pos">↓ −33 vs 2021</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Meilleure allure</div>
+      <div class="kpi-val">4:36<span class="kpi-unit">/km</span></div>
+      <div class="kpi-sub">2024 · best effort</div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Volume annuel (km + sorties)</div>
+      <div style="position:relative;height:200px">
+        <canvas id="yearChart" role="img" aria-label="Kilomètres et nombre de sorties par année 2020-2026">Km: 228,1719,1732,1412,1348,1110,315 | Sorties: 31,216,209,162,153,136,44</canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Répartition des distances</div>
+      <div style="position:relative;height:160px">
+        <canvas id="donutChart" role="img" aria-label="Répartition des sorties par distance">156 &lt;5km, 581 5-10km, 189 10-20km, 19 20-30km, 6 30km+</canvas>
+      </div>
+      <div class="donut-legend">
+        <div class="dl-item"><div class="dl-label"><span class="dl-dot" style="background:#378ADD"></span>&lt; 5 km</div><div class="dl-val">156 sorties</div></div>
+        <div class="dl-item"><div class="dl-label"><span class="dl-dot" style="background:#1D9E75"></span>5 – 10 km</div><div class="dl-val">581 sorties</div></div>
+        <div class="dl-item"><div class="dl-label"><span class="dl-dot" style="background:#EF9F27"></span>10 – 20 km</div><div class="dl-val">189 sorties</div></div>
+        <div class="dl-item"><div class="dl-label"><span class="dl-dot" style="background:#8b7fee"></span>20 – 30 km</div><div class="dl-val">19 sorties</div></div>
+        <div class="dl-item"><div class="dl-label"><span class="dl-dot" style="background:#E24B4A"></span>30+ km</div><div class="dl-val">6 sorties</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="bottom-grid">
+
+    <div class="chart-card">
+      <div class="chart-title">FC moyenne par année</div>
+      <div class="prog-row">
+        <div class="prog-item">
+          <span class="prog-label">2020</span>
+          <div class="prog-track"><div class="prog-fill" style="width:83%;background:#E24B4A"></div></div>
+          <span class="prog-val">166 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2021</span>
+          <div class="prog-track"><div class="prog-fill" style="width:88.5%;background:#D85A30"></div></div>
+          <span class="prog-val">177 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2022</span>
+          <div class="prog-track"><div class="prog-fill" style="width:84.5%;background:#EF9F27"></div></div>
+          <span class="prog-val">169 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2023</span>
+          <div class="prog-track"><div class="prog-fill" style="width:86%;background:#EF9F27"></div></div>
+          <span class="prog-val">172 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2024</span>
+          <div class="prog-track"><div class="prog-fill" style="width:74.5%;background:#639922"></div></div>
+          <span class="prog-val">149 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2025</span>
+          <div class="prog-track"><div class="prog-fill" style="width:72%;background:#1D9E75"></div></div>
+          <span class="prog-val">144 bpm</span>
+        </div>
+        <div class="prog-item">
+          <span class="prog-label">2026</span>
+          <div class="prog-track"><div class="prog-fill" style="width:73%;background:#1D9E75"></div></div>
+          <span class="prog-val">146 bpm</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#1D9E75;margin-top:12px">↓ −33 bpm sur 6 ans · progression aérobie exceptionnelle</div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Sorties par jour de la semaine</div>
+      <div class="dow-grid">
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:35%;background:rgba(91,141,238,0.4)"></div></div>
+          <div class="dow-label">Lun</div>
+          <div class="dow-km">65</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:71%;background:rgba(91,141,238,0.5)"></div></div>
+          <div class="dow-label">Mar</div>
+          <div class="dow-km">132</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:72%;background:rgba(91,141,238,0.5)"></div></div>
+          <div class="dow-label">Mer</div>
+          <div class="dow-km">134</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:75%;background:rgba(91,141,238,0.55)"></div></div>
+          <div class="dow-label">Jeu</div>
+          <div class="dow-km">138</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:67%;background:rgba(91,141,238,0.5)"></div></div>
+          <div class="dow-label">Ven</div>
+          <div class="dow-km">124</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:93%;background:rgba(31,201,160,0.7)"></div></div>
+          <div class="dow-label">Sam</div>
+          <div class="dow-km">173</div>
+        </div>
+        <div class="dow-col">
+          <div class="dow-bar-wrap"><div class="dow-bar" style="height:100%;background:var(--teal)"></div></div>
+          <div class="dow-label">Dim</div>
+          <div class="dow-km">185</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px">Dim avg <strong style="color:var(--teal)">10.3 km</strong> vs Lun avg <strong style="color:var(--accent)">7.8 km</strong></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Top 6 sorties ultra</div>
+      <div class="run-list">
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num">1</span></div>
+          <div class="run-info"><div class="run-dist">70.97 km</div><div class="run-meta">30 avr. 2022 · D+3145m · ♡131</div></div>
+          <span class="run-badge">Record</span>
+        </div>
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num" style="color:var(--muted)">2</span></div>
+          <div class="run-info"><div class="run-dist">52.55 km</div><div class="run-meta">21 nov. 2021 · D+1598m · ♡148</div></div>
+        </div>
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num" style="color:var(--muted)">3</span></div>
+          <div class="run-info"><div class="run-dist">46.77 km</div><div class="run-meta">8 août 2025 · D+2932m · ♡116</div></div>
+        </div>
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num" style="color:var(--muted)">4</span></div>
+          <div class="run-info"><div class="run-dist">44.56 km</div><div class="run-meta">7 août 2025 · D+2246m · ♡132</div></div>
+        </div>
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num" style="color:var(--muted)">5</span></div>
+          <div class="run-info"><div class="run-dist">39.07 km</div><div class="run-meta">10 août 2025 · D+2175m · ♡114</div></div>
+        </div>
+        <div class="run-item">
+          <div class="run-rank"><span class="run-rank-num" style="color:var(--muted)">6</span></div>
+          <div class="run-info"><div class="run-dist">32.41 km</div><div class="run-meta">23 août 2024 · D+2033m · ♡110</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dénivelé chart -->
+  <div class="chart-card">
+    <div class="chart-title">Dénivelé positif par année (m) — pic 2024 : transition trail montagne</div>
+    <div style="position:relative;height:130px">
+      <canvas id="gainChart" role="img" aria-label="Dénivelé positif par année">4468, 30928, 38220, 26697, 56024, 37107, 5831</canvas>
+    </div>
+  </div>
+
+  <!-- AI Panel -->
+  <div class="ai-panel">
+    <div class="ai-header">
+      <div class="ai-dot"></div>
+      <div class="ai-title">Analyse IA — Claude Sonnet</div>
+    </div>
+    <div class="ai-content" id="aiContent">
+      <div class="ai-insight">Pose une question sur tes données pour obtenir une analyse personnalisée...</div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="aiInput" type="text" placeholder="Ex : Quelle est ma meilleure période d'entraînement ? Pourquoi mon dénivelé a explosé en 2024 ?" />
+      <button class="ai-btn" id="aiBtn" onclick="askClaude()">Analyser ↗</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>Dashboard Ultra Trail · Nordine Yagoub · Données Suunto 2020–2026 · Propulsé par Claude AI</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const ATHLETE_CONTEXT = `Tu analyses les données ultra trail de Nordine Yagoub (coureur expérimenté, basé en France/Londres).
+
+Données clés de ses 951 sorties de course (2020-2026) :
+- Distance totale : 7 864 km | D+ total : 199 275 m
+- Par année : 2020(228km,31 sorties), 2021(1719km,216), 2022(1732km,209), 2023(1412km,162), 2024(1348km,153), 2025(1110km,136), 2026(315km,44)
+- D+ par année : 2020(4468m), 2021(30928m), 2022(38220m), 2023(26697m), 2024(56024m!), 2025(37107m), 2026(5831m)
+- FC moy. par année : 2020(166bpm), 2021(177bpm), 2022(169bpm), 2023(172bpm), 2024(149bpm), 2025(144bpm), 2026(146bpm)
+- Allure moy. par année : 2020(7.73), 2021(7.02), 2022(7.18), 2023(6.74), 2024(7.40), 2025(7.79), 2026(7.98) min/km
+- Répartition distances : <5km(156), 5-10km(581), 10-20km(189), 20-30km(19), 30km+(6)
+- Jours favoris : Dim(185 sorties,10.3km moy), Sam(173,9.3km), Jeu(138), Mer(134), Mar(132), Ven(124), Lun(65)
+- Record distance : 70.97km le 30/04/2022 (D+3145m, FC 131bpm)
+- Cluster août 2025 : 4 sorties ultra consécutives (47km, 45km, 39km, 28km) avec FC très basse (107-132bpm)
+- Meilleure allure enregistrée : 4:36 min/km (2024)
+
+Réponds en français, de façon concise (max 4 phrases), avec des insights data-driven précis. Sois direct et actionnable.`;
+
+async function askClaude() {
+  const input = document.getElementById('aiInput');
+  const btn = document.getElementById('aiBtn');
+  const content = document.getElementById('aiContent');
+  const question = input.value.trim();
+  
+  if (!question) return;
+  
+  btn.disabled = true;
+  btn.textContent = '...';
+  content.className = 'ai-content loading';
+  content.innerHTML = '<div class="ai-insight">Analyse en cours...</div>';
+  
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: ATHLETE_CONTEXT,
+        messages: [{ role: 'user', content: question }]
+      })
+    });
+    
+    const data = await response.json();
+    const text = data.content?.find(b => b.type === 'text')?.text || 'Erreur de réponse';
+    
+    content.className = 'ai-content';
+    const paragraphs = text.split('\n').filter(p => p.trim());
+    content.innerHTML = paragraphs.map(p => `<div class="ai-insight" style="margin-bottom:8px">${p}</div>`).join('');
+    input.value = '';
+  } catch (err) {
+    content.className = 'ai-content';
+    content.innerHTML = '<div class="ai-insight" style="color:#E24B4A">Erreur de connexion à l\'API. Vérifiez votre connexion.</div>';
+  }
+  
+  btn.disabled = false;
+  btn.textContent = 'Analyser ↗';
+}
+
+document.getElementById('aiInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') askClaude();
+});
+
+// Charts
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false } }
+};
+
+new Chart(document.getElementById('yearChart'), {
+  type: 'bar',
+  data: {
+    labels: ['2020','2021','2022','2023','2024','2025','2026'],
+    datasets: [
+      {
+        label: 'Distance (km)', data: [228,1719,1732,1412,1348,1110,315],
+        backgroundColor: 'rgba(91,141,238,0.7)', borderRadius: 5, yAxisID: 'y'
+      },
+      {
+        label: 'Sorties', data: [31,216,209,162,153,136,44],
+        type: 'line', borderColor: '#1fc9a0', backgroundColor: 'rgba(31,201,160,0.1)',
+        tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1fc9a0', fill: true, yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a7f94', font: { size: 10 }, callback: v => v + ' km' } },
+      y2: { position: 'right', grid: { display: false }, ticks: { color: '#7a7f94', font: { size: 10 } } },
+      x: { grid: { display: false }, ticks: { color: '#7a7f94', font: { size: 11 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('donutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['< 5 km','5–10 km','10–20 km','20–30 km','30+ km'],
+    datasets: [{
+      data: [156,581,189,19,6],
+      backgroundColor: ['#378ADD','#1D9E75','#EF9F27','#8b7fee','#E24B4A'],
+      borderWidth: 0, hoverOffset: 4
+    }]
+  },
+  options: { ...chartDefaults, cutout: '65%' }
+});
+
+new Chart(document.getElementById('gainChart'), {
+  type: 'bar',
+  data: {
+    labels: ['2020','2021','2022','2023','2024','2025','2026'],
+    datasets: [{
+      data: [4468,30928,38220,26697,56024,37107,5831],
+      backgroundColor: [
+        'rgba(91,141,238,0.5)','rgba(91,141,238,0.6)','rgba(91,141,238,0.7)',
+        'rgba(91,141,238,0.6)','rgba(245,166,35,0.85)','rgba(91,141,238,0.6)','rgba(91,141,238,0.4)'
+      ],
+      borderRadius: 4
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a7f94', font: { size: 10 }, callback: v => (v/1000).toFixed(0) + 'K m' } },
+      x: { grid: { display: false }, ticks: { color: '#7a7f94', font: { size: 11 } } }
+    }
+  }
+});
+
+// Auto-load initial AI analysis
+window.addEventListener('load', async () => {
+  const content = document.getElementById('aiContent');
+  content.className = 'ai-content loading';
+  content.innerHTML = '<div class="ai-insight">Chargement de l\'analyse initiale...</div>';
+  
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: ATHLETE_CONTEXT,
+        messages: [{ role: 'user', content: "Donne-moi 3 insights clés sur ma progression ultra trail, les tendances principales et une recommandation concrète pour la suite." }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content?.find(b => b.type === 'text')?.text || '';
+    content.className = 'ai-content';
+    const paragraphs = text.split('\n').filter(p => p.trim());
+    content.innerHTML = paragraphs.map(p => `<div class="ai-insight" style="margin-bottom:8px">${p}</div>`).join('');
+  } catch {
+    content.className = 'ai-content';
+    content.innerHTML = '<div class="ai-insight">Pose ta question pour obtenir une analyse IA de tes données.</div>';
+  }
+});
+</script>
+</body>
+</html>
